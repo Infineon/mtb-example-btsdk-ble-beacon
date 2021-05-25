@@ -99,11 +99,22 @@
 // which exports the public key
 extern Point    ecdsa256_public_key;
 #endif
+
+#ifdef BTSTACK_VER
+#include "wiced_memory.h"
+#define BT_STACK_HEAP_SIZE          1024 * 6
+#define MULTI_ADV_TX_POWER_MAX      MULTI_ADV_TX_POWER_MAX_INDEX
+wiced_bt_heap_t *p_default_heap = NULL;
+wiced_bt_db_hash_t headset_db_hash;
+#else
+extern const wiced_bt_cfg_buf_pool_t app_buf_pools[];
+#endif
+
 /******************************************************************************
  *                                Structures
  ******************************************************************************/
 
-#if defined(CYW20735B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX)
+#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
 /* Adv parameter used for multi-adv*/
 wiced_bt_ble_multi_adv_params_t adv_param =
 #else
@@ -114,7 +125,7 @@ wiced_bt_beacon_multi_advert_data_t adv_param =
     .adv_int_max = BTM_BLE_ADVERT_INTERVAL_MAX,
     .adv_type = MULTI_ADVERT_NONCONNECTABLE_EVENT,
     .channel_map = BTM_BLE_ADVERT_CHNL_37 | BTM_BLE_ADVERT_CHNL_38 | BTM_BLE_ADVERT_CHNL_39,
-    .adv_filter_policy = BTM_BLE_ADVERT_FILTER_WHITELIST_CONNECTION_REQ_WHITELIST_SCAN_REQ,
+    .adv_filter_policy = BTM_BLE_ADV_POLICY_FILTER_CONN_FILTER_SCAN,
     .adv_tx_power = MULTI_ADV_TX_POWER_MAX,
     .peer_bd_addr = {0},
     .peer_addr_type = BLE_ADDR_PUBLIC,
@@ -130,7 +141,6 @@ static wiced_timer_t beacon_timer;
 uint16_t      beacon_conn_id = 0;
 
 extern const wiced_bt_cfg_settings_t app_cfg_settings;
-extern const wiced_bt_cfg_buf_pool_t app_buf_pools[];
 
 /* transport configuration, needed for WICED HCI traces */
 const wiced_transport_cfg_t transport_cfg =
@@ -144,11 +154,20 @@ const wiced_transport_cfg_t transport_cfg =
             .baud_rate =  HCI_UART_DEFAULT_BAUD
         },
     },
+#ifdef NEW_DYNAMIC_MEMORY_INCLUDED
+    .heap_config =
+    {
+        .data_heap_size = 1024 * 4 + 1500 * 2,
+        .hci_trace_heap_size = 1024 * 2,
+        .debug_trace_heap_size = 1024,
+    },
+#else
     .rx_buff_pool_cfg =
     {
         .buffer_size = 0,
         .buffer_count = 0
     },
+#endif
     .p_status_handler = NULL,
     .p_data_handler = NULL,
     .p_tx_complete_cback = NULL
@@ -165,9 +184,11 @@ static void                     beacon_set_eddystone_ibecon_advertisement_data(v
 
 static wiced_bt_gatt_status_t   beacon_connection_status_event(wiced_bt_gatt_connection_status_t *p_status);
 static wiced_bt_gatt_status_t   beacon_gatts_req_callback(wiced_bt_gatt_attribute_request_t *p_data);
+#ifndef BTSTACK_VER
 static wiced_bt_gatt_status_t   beacon_gatts_req_read_handler(uint16_t conn_id, wiced_bt_gatt_read_t * p_read_data);
 static wiced_bt_gatt_status_t   beacon_gatts_req_write_handler(uint16_t conn_id, wiced_bt_gatt_write_t *p_write_data);
 static wiced_bt_gatt_status_t   beacon_indication_cfm_handler(uint16_t conn_id, uint16_t handle);
+#endif
 
 static void beacon_start_advertisement( void );
 static void beacon_stop_advertisement(void);
@@ -222,8 +243,19 @@ APPLICATION_START()
 
     WICED_BT_TRACE("beacon_application_start\n");
 
+#ifdef BTSTACK_VER
+    /* Create default heap */
+    p_default_heap = wiced_bt_create_heap("default_heap", NULL, BT_STACK_HEAP_SIZE, NULL, WICED_TRUE);
+    if (p_default_heap == NULL)
+    {
+        WICED_BT_TRACE("create default heap error: size %d\n", BT_STACK_HEAP_SIZE);
+        return;
+    }
+    wiced_bt_stack_init(beacon_management_callback, &app_cfg_settings);
+#else
     // Register call back and configuration with stack
     wiced_bt_stack_init(beacon_management_callback, &app_cfg_settings, app_buf_pools);
+#endif
 }
 
 /*
@@ -247,7 +279,11 @@ void beacon_init(void)
     WICED_BT_TRACE("wiced_bt_gatt_register: %d\n", gatt_status);
 
     /*  Tell stack to use our GATT database */
+#ifdef BTSTACK_VER
+    gatt_status =  wiced_bt_gatt_db_init( gatt_database, gatt_database_len, headset_db_hash );
+#else
     gatt_status =  wiced_bt_gatt_db_init(gatt_database, gatt_database_len);
+#endif
 
     WICED_BT_TRACE("wiced_bt_gatt_db_init %d\n", gatt_status);
     wiced_bt_dev_register_hci_trace(NULL);
@@ -416,7 +452,7 @@ static void beacon_start_advertisement(void)
     /* Start Eddystone UID advertisements */
     adv_param.adv_int_min = 320; // 200 ms
     adv_param.adv_int_max = 320;
-#if defined(CYW20735B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX)
+#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_UID, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -430,7 +466,7 @@ static void beacon_start_advertisement(void)
     /* Start Eddystone URL advertisements */
     adv_param.adv_int_min = 80; // 50 ms
     adv_param.adv_int_max = 80;
-#if defined(CYW20735B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX)
+#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_URL, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -444,7 +480,7 @@ static void beacon_start_advertisement(void)
     /* Start Eddystone EID advertisements */
     adv_param.adv_int_min = 480; // 300 ms
     adv_param.adv_int_max = 480;
-#if defined(CYW20735B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX)
+#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_EID, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -458,7 +494,7 @@ static void beacon_start_advertisement(void)
     /* Start iBeacon advertisements */
     adv_param.adv_int_min = 160; // 100 ms
     adv_param.adv_int_max = 160;
-#if defined(CYW20735B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX)
+#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
     wiced_set_multi_advertisement_params(BEACON_IBEACON, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -509,7 +545,7 @@ void beacon_data_update(uint32_t arg)
     /* Sets adv data for multi adv instance*/
     adv_param.adv_int_min = 1280; // 800 ms
     adv_param.adv_int_max = 1280; // 800 ms
-#if defined(CYW20735B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX)
+#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_TLM, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -552,8 +588,8 @@ void beacon_set_app_advertisement_data(void)
     num_elem++;
 
     adv_elem[num_elem].advert_type  = BTM_BLE_ADVERT_TYPE_NAME_COMPLETE;
-    adv_elem[num_elem].len          = strlen((const char *)app_cfg_settings.device_name);
-    adv_elem[num_elem].p_data       = (uint8_t*)app_cfg_settings.device_name;
+    adv_elem[num_elem].len          = app_gap_device_name_len;
+    adv_elem[num_elem].p_data       = (uint8_t*)app_gap_device_name;
     num_elem++;
 
     wiced_bt_ble_set_raw_advertisement_data(num_elem, adv_elem);
@@ -640,6 +676,272 @@ wiced_result_t beacon_management_callback(wiced_bt_management_evt_t event, wiced
     return result;
 }
 
+#if BTSTACK_VER > 0x01020000
+/*
+ * Process Read request from peer device
+ */
+wiced_bt_gatt_status_t beacon_req_read_handler(uint16_t conn_id,
+        wiced_bt_gatt_opcode_t opcode,
+        wiced_bt_gatt_read_t *p_read_req,
+        uint16_t len_requested)
+{
+    int to_copy;
+    uint8_t * copy_from;
+
+#if OTA_FW_UPGRADE
+    // if read request is for the OTA FW upgrade service, pass it to the library to process
+    if (p_read_req->handle > HANDLE_OTA_FW_UPGRADE_SERVICE)
+    {
+        return wiced_ota_fw_upgrade_read_handler(conn_id, p_read_req);
+    }
+#endif
+    switch(p_read_req->handle)
+    {
+    case HDLC_GAP_DEVICE_NAME_VALUE:
+        to_copy = app_gap_device_name_len;
+        copy_from = (uint8_t *) app_gap_device_name;
+        break;
+
+    case HDLC_GAP_APPEARANCE_VALUE:
+        to_copy = 2;
+        copy_from = (uint8_t *) &app_cfg_settings.p_ble_cfg->appearance;
+        break;
+
+    default:
+        return WICED_BT_GATT_INVALID_HANDLE;
+    }
+
+    // Adjust copying location & length limit based on offset
+    copy_from += p_read_req->offset;
+    to_copy -= p_read_req->offset;
+
+    // if copy length is not valid, then that means the offset of over the limit
+    if (to_copy <= 0)
+    {
+        wiced_bt_gatt_server_send_error_rsp(conn_id, opcode, p_read_req->handle,
+            WICED_BT_GATT_INVALID_OFFSET);
+        return WICED_BT_GATT_INVALID_OFFSET;
+    }
+
+    // If the copying length is not specified or if it is over the size, use the max can copy
+    if (len_requested == 0 || len_requested > to_copy)
+    {
+        len_requested = to_copy;
+    }
+
+    wiced_bt_gatt_server_send_read_handle_rsp(conn_id, opcode, len_requested, copy_from, NULL);
+
+    return WICED_BT_GATT_SUCCESS;
+}
+
+/*
+ * Process Read by type request from peer device
+ */
+wiced_bt_gatt_status_t beacon_req_read_by_type_handler(uint16_t conn_id,
+        wiced_bt_gatt_opcode_t opcode,
+        wiced_bt_gatt_read_by_type_t *p_read_req,
+        uint16_t len_requested)
+{
+    int         to_copy;
+    uint8_t     * copy_from;
+    uint16_t    attr_handle = p_read_req->s_handle;
+    uint8_t    *p_rsp = wiced_bt_get_buffer(len_requested);
+    uint16_t    rsp_len = 0;
+    uint8_t     pair_len = 0;
+    int used = 0;
+
+    if (p_rsp == NULL)
+    {
+        WICED_BT_TRACE("[%s] no memory len_requested: %d!!\n", __FUNCTION__,
+                len_requested);
+        wiced_bt_gatt_server_send_error_rsp(conn_id, opcode, attr_handle,
+                WICED_BT_GATT_INSUF_RESOURCE);
+        return WICED_BT_GATT_INSUF_RESOURCE;
+    }
+
+    /* Read by type returns all attributes of the specified type, between the start and end handles */
+    while (WICED_TRUE)
+    {
+        /// Add your code here
+        attr_handle = wiced_bt_gatt_find_handle_by_type(attr_handle,
+                p_read_req->e_handle, &p_read_req->uuid);
+
+        if (attr_handle == 0)
+            break;
+
+        switch(attr_handle)
+        {
+        case HDLC_GAP_DEVICE_NAME_VALUE:
+            to_copy = app_gap_device_name_len;
+            copy_from = (uint8_t *) app_gap_device_name;
+            break;
+
+        case HDLC_GAP_APPEARANCE_VALUE:
+            to_copy = 2;
+            copy_from = (uint8_t *) &app_cfg_settings.p_ble_cfg->appearance;
+            break;
+
+        default:
+            WICED_BT_TRACE("[%s] found type but no attribute ??\n", __FUNCTION__);
+            wiced_bt_gatt_server_send_error_rsp(conn_id, opcode,
+                    p_read_req->s_handle, WICED_BT_GATT_ERR_UNLIKELY);
+            wiced_bt_free_buffer(p_rsp);
+            return WICED_BT_GATT_ERR_UNLIKELY;
+        }
+
+        int filled = wiced_bt_gatt_put_read_by_type_rsp_in_stream(
+                p_rsp + used,
+                len_requested - used,
+                &pair_len,
+                attr_handle,
+                to_copy,
+                copy_from);
+
+        if (filled == 0) {
+            break;
+        }
+        used += filled;
+
+        /* Increment starting handle for next search to one past current */
+        attr_handle++;
+    }
+
+    if (used == 0)
+    {
+        WICED_BT_TRACE("[%s] attr not found 0x%04x -  0x%04x Type: 0x%04x\n",
+                __FUNCTION__, p_read_req->s_handle, p_read_req->e_handle,
+                p_read_req->uuid.uu.uuid16);
+
+        wiced_bt_gatt_server_send_error_rsp(conn_id, opcode, p_read_req->s_handle,
+                WICED_BT_GATT_INVALID_HANDLE);
+        wiced_bt_free_buffer(p_rsp);
+        return WICED_BT_GATT_INVALID_HANDLE;
+    }
+
+    /* Send the response */
+    wiced_bt_gatt_server_send_read_by_type_rsp(conn_id, opcode, pair_len,
+            used, p_rsp, (wiced_bt_gatt_app_context_t)wiced_bt_free_buffer);
+
+    return WICED_BT_GATT_SUCCESS;
+}
+
+/*
+ * Process read multi request from peer device
+ */
+wiced_bt_gatt_status_t beacon_req_read_multi_handler(uint16_t conn_id,
+        wiced_bt_gatt_opcode_t opcode,
+        wiced_bt_gatt_read_multiple_req_t *p_read_req,
+        uint16_t len_requested)
+{
+    uint8_t     *p_rsp = wiced_bt_get_buffer(len_requested);
+    int         used = 0;
+    int         xx;
+    uint16_t    handle;
+    int         to_copy;
+    uint8_t     * copy_from;
+
+    handle = wiced_bt_gatt_get_handle_from_stream(p_read_req->p_handle_stream, 0);
+
+    if (p_rsp == NULL)
+    {
+        WICED_BT_TRACE ("[%s] no memory len_requested: %d!!\n", __FUNCTION__,
+                len_requested);
+
+        wiced_bt_gatt_server_send_error_rsp(conn_id, opcode, handle,
+                WICED_BT_GATT_INSUF_RESOURCE);
+        return WICED_BT_GATT_INSUF_RESOURCE;
+    }
+
+    /* Read by type returns all attributes of the specified type, between the start and end handles */
+    for (xx = 0; xx < p_read_req->num_handles; xx++)
+    {
+        handle = wiced_bt_gatt_get_handle_from_stream(p_read_req->p_handle_stream, xx);
+
+        switch(handle)
+        {
+        case HDLC_GAP_DEVICE_NAME_VALUE:
+            to_copy = app_gap_device_name_len;
+            copy_from = (uint8_t *) app_gap_device_name;
+            break;
+
+        case HDLC_GAP_APPEARANCE_VALUE:
+            to_copy = 2;
+            copy_from = (uint8_t *) &app_cfg_settings.p_ble_cfg->appearance;
+            break;
+
+        default:
+            WICED_BT_TRACE ("[%s] no handle 0x%04xn", __FUNCTION__, handle);
+            wiced_bt_gatt_server_send_error_rsp(conn_id, opcode,
+                    *p_read_req->p_handle_stream, WICED_BT_GATT_ERR_UNLIKELY);
+            wiced_bt_free_buffer(p_rsp);
+            return WICED_BT_GATT_ERR_UNLIKELY;
+        }
+        int filled = wiced_bt_gatt_put_read_multi_rsp_in_stream(opcode,
+                    p_rsp + used,
+                    len_requested - used,
+                    handle,
+                    to_copy,
+                    copy_from);
+
+        if (!filled) {
+            break;
+        }
+        used += filled;
+    }
+
+    if (used == 0)
+    {
+        WICED_BT_TRACE ("[%s] no attr found\n", __FUNCTION__);
+
+        wiced_bt_gatt_server_send_error_rsp(conn_id, opcode,
+                *p_read_req->p_handle_stream, WICED_BT_GATT_INVALID_HANDLE);
+        wiced_bt_free_buffer(p_rsp);
+        return WICED_BT_GATT_INVALID_HANDLE;
+    }
+
+    /* Send the response */
+    wiced_bt_gatt_server_send_read_multiple_rsp(conn_id, opcode, used, p_rsp,
+            (wiced_bt_gatt_app_context_t)wiced_bt_free_buffer);
+
+    return WICED_BT_GATT_SUCCESS;
+}
+
+/*
+ * Process write request or write command from peer device
+ */
+wiced_bt_gatt_status_t beacon_write_handler(uint16_t conn_id,
+        wiced_bt_gatt_opcode_t opcode,
+        wiced_bt_gatt_write_req_t* p_data)
+{
+    WICED_BT_TRACE("[%s] conn_id:%d handle:%04x\n", __FUNCTION__, conn_id,
+            p_data->handle);
+
+    return WICED_BT_GATT_SUCCESS;
+}
+
+/*
+ * Process MTU request from the peer
+ */
+wiced_bt_gatt_status_t beacon_req_mtu_handler( uint16_t conn_id, uint16_t mtu)
+{
+    WICED_BT_TRACE("req_mtu: %d\n", mtu);
+    wiced_bt_gatt_server_send_mtu_rsp(conn_id, mtu,
+            app_cfg_settings.p_ble_cfg->ble_max_rx_pdu_size);
+    return WICED_BT_GATT_SUCCESS;
+}
+
+/*
+ * Process indication confirm.
+ */
+wiced_bt_gatt_status_t beacon_req_value_conf_handler(uint16_t conn_id,
+        uint16_t handle)
+{
+    WICED_BT_TRACE("[%s] conn_id:%d handle:%x\n", __FUNCTION__, conn_id, handle);
+
+    return WICED_BT_GATT_SUCCESS;
+}
+
+#else // BTSTACK_VER
 /*
  * Process Read request or command from peer device
  */
@@ -657,14 +959,14 @@ wiced_bt_gatt_status_t beacon_gatts_req_read_handler(uint16_t conn_id, wiced_bt_
     switch(p_read_data->handle)
     {
     case HDLC_GAP_DEVICE_NAME_VALUE:
-        if (p_read_data->offset >= strlen((const char *)app_cfg_settings.device_name))
+        if (p_read_data->offset >= app_gap_device_name_len)
             return WICED_BT_GATT_INVALID_OFFSET;
 
-        to_copy = strlen((const char *)app_cfg_settings.device_name) - p_read_data->offset;
+        to_copy = app_gap_device_name_len - p_read_data->offset;
         if (*p_read_data->p_val_len < to_copy)
             to_copy = *p_read_data->p_val_len;
 
-        memcpy(p_read_data->p_val, app_cfg_settings.device_name + p_read_data->offset, to_copy);
+        memcpy(p_read_data->p_val, app_gap_device_name + p_read_data->offset, to_copy);
         *p_read_data->p_val_len = to_copy;
         break;
 
@@ -717,6 +1019,7 @@ wiced_bt_gatt_status_t beacon_indication_cfm_handler(uint16_t conn_id, uint16_t 
 
     return WICED_BT_GATT_INVALID_HANDLE;
 }
+#endif // BTSTACK_VER
 
 /*
  * Connection up/down event
@@ -748,8 +1051,74 @@ wiced_bt_gatt_status_t beacon_connection_status_event(wiced_bt_gatt_connection_s
  */
 wiced_bt_gatt_status_t beacon_gatts_req_callback(wiced_bt_gatt_attribute_request_t *p_data)
 {
-    wiced_result_t result = WICED_BT_GATT_INVALID_PDU;
+    wiced_bt_gatt_status_t result = WICED_BT_GATT_INVALID_PDU;
 
+#if BTSTACK_VER > 0x01020000
+    switch (p_data->opcode)
+    {
+        case GATT_REQ_READ:
+        case GATT_REQ_READ_BLOB:
+            result = beacon_req_read_handler(p_data->conn_id,
+                    p_data->opcode,
+                    &p_data->data.read_req,
+                    p_data->len_requested);
+            break;
+
+        case GATT_REQ_READ_BY_TYPE:
+            result = beacon_req_read_by_type_handler(p_data->conn_id,
+                    p_data->opcode,
+                    &p_data->data.read_by_type,
+                    p_data->len_requested);
+            break;
+
+        case GATT_REQ_READ_MULTI:
+        case GATT_REQ_READ_MULTI_VAR_LENGTH:
+            result = beacon_req_read_multi_handler(p_data->conn_id,
+                    p_data->opcode,
+                    &p_data->data.read_multiple_req,
+                    p_data->len_requested);
+            break;
+
+        case GATT_REQ_WRITE:
+        case GATT_CMD_WRITE:
+        case GATT_CMD_SIGNED_WRITE:
+            result = beacon_write_handler(p_data->conn_id,
+                    p_data->opcode,
+                    &(p_data->data.write_req));
+            if (result == WICED_BT_GATT_SUCCESS)
+            {
+                wiced_bt_gatt_server_send_write_rsp(
+                        p_data->conn_id,
+                        p_data->opcode,
+                        p_data->data.write_req.handle);
+            }
+            else
+            {
+                wiced_bt_gatt_server_send_error_rsp(
+                        p_data->conn_id,
+                        p_data->opcode,
+                        p_data->data.write_req.handle,
+                        result);
+            }
+            break;
+
+        case GATT_REQ_MTU:
+            result = beacon_req_mtu_handler(p_data->conn_id,
+                    p_data->data.remote_mtu);
+            break;
+
+        case GATT_HANDLE_VALUE_CONF:
+            result = beacon_req_value_conf_handler(p_data->conn_id,
+                    p_data->data.confirm.handle);
+            break;
+
+       default:
+            WICED_BT_TRACE("Invalid GATT request conn_id:%d opcode:%d\n",
+                    p_data->conn_id, p_data->opcode);
+            break;
+    }
+
+#else /* !BTSTACK_VER */
     switch (p_data->request_type)
     {
     case GATTS_REQ_TYPE_READ:
@@ -777,6 +1146,7 @@ wiced_bt_gatt_status_t beacon_gatts_req_callback(wiced_bt_gatt_attribute_request
         WICED_BT_TRACE("%s: Unsupported type: %d\n", __func__, p_data->request_type);
         break;
     }
+#endif /* BTSTACK_VER */
     return result;
 }
 
