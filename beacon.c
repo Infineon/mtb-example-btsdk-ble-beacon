@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -188,7 +188,7 @@ extern wiced_bt_gatt_status_t   beacon_gatts_req_callback(wiced_bt_gatt_attribut
 static void beacon_start_advertisement( void );
 static void beacon_stop_advertisement(void);
 static void beacon_set_timer(void);
-static void beacon_data_update(uint32_t arg);
+static void beacon_data_update(TIMER_PARAM_TYPE arg);
 extern void beacon_set_app_advertisement_data();
 
 static void beacon_set_eddystone_uid_advertisement_data(void);
@@ -355,7 +355,7 @@ static void beacon_set_eddystone_url_advertisement_data(void)
     /* Set sample values for Eddystone URL*/
     uint8_t beacon_tx_power = 0x01;
     uint8_t urlscheme = EDDYSTONE_URL_SCHEME_0;
-    uint8_t encoded_url[EDDYSTONE_URL_VALUE_MAX_LEN] = "cypress.com";
+    uint8_t encoded_url[EDDYSTONE_URL_VALUE_MAX_LEN] = "infineon.com";
 
     memset(adv_data_url, 0, 31);
 
@@ -519,7 +519,7 @@ static void beacon_set_timer(void)
 }
 
 /* Function called on timer */
-void beacon_data_update(uint32_t arg)
+void beacon_data_update(TIMER_PARAM_TYPE arg)
 {
     /* Stops Eddystone TLM advertisements */
     wiced_start_multi_advertisements(MULTI_ADVERT_STOP, BEACON_EDDYSTONE_TLM);
