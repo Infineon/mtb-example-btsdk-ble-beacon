@@ -49,8 +49,8 @@
 *
 * To demonstrate the app, work through the following steps.
 *
-* 1. Plug the WICED eval board into your computer
-* 2. Build and download the application to the WICED board
+* 1. Plug the AIROC eval board into your computer
+* 2. Build and download the application to the AIROC board
 * 3. Monitor advertisement packets -
 *        - on Android, download  app such as 'Beacon Scanner' by Nicholas Briduox
 *        - on iOS, download app such as 'Locate Beacon'. Add UUID for iBeacon (see below UUID_IBEACON)
@@ -60,7 +60,7 @@
 */
 #include "wiced_bt_trace.h"
 #include "wiced_bt_cfg.h"
-#if ( defined(CYW20706A2) || defined(CYW20719B1) || defined(CYW20719B0) || defined(CYW20721B1) || defined(CYW20735B0) || defined(CYW43012C0) )
+#if ( defined(CYW20706A2) || defined(CYW20719B1) || defined(CYW20721B1) || defined(CYW43012C0) )
 #include "wiced_bt_app_common.h"
 #endif
 #include "wiced_bt_stack.h"
@@ -114,7 +114,7 @@ extern const wiced_bt_cfg_buf_pool_t app_buf_pools[];
  *                                Structures
  ******************************************************************************/
 
-#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
 /* Adv parameter used for multi-adv*/
 wiced_bt_ble_multi_adv_params_t adv_param =
 #else
@@ -204,7 +204,7 @@ static void beacon_set_ibeacon_advertisement_data(void);
 /*
  *  Entry point to the application. Set device configuration and start BT
  *  stack initialization.  The actual application initialization will happen
- *  when stack reports that BT device is ready.
+ *  when stack reports that Bluetooth device is ready.
  */
 APPLICATION_START()
 {
@@ -447,7 +447,7 @@ static void beacon_start_advertisement(void)
     /* Start Eddystone UID advertisements */
     adv_param.adv_int_min = 320; // 200 ms
     adv_param.adv_int_max = 320;
-#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_UID, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -461,7 +461,7 @@ static void beacon_start_advertisement(void)
     /* Start Eddystone URL advertisements */
     adv_param.adv_int_min = 80; // 50 ms
     adv_param.adv_int_max = 80;
-#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_URL, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -475,7 +475,7 @@ static void beacon_start_advertisement(void)
     /* Start Eddystone EID advertisements */
     adv_param.adv_int_min = 480; // 300 ms
     adv_param.adv_int_max = 480;
-#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_EID, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -489,7 +489,7 @@ static void beacon_start_advertisement(void)
     /* Start iBeacon advertisements */
     adv_param.adv_int_min = 160; // 100 ms
     adv_param.adv_int_max = 160;
-#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
     wiced_set_multi_advertisement_params(BEACON_IBEACON, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -530,7 +530,7 @@ void beacon_data_update(TIMER_PARAM_TYPE arg)
     /* Sets adv data for multi adv instance*/
     adv_param.adv_int_min = 1280; // 800 ms
     adv_param.adv_int_max = 1280; // 800 ms
-#if defined(CYW20735B1) || defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_TLM, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
