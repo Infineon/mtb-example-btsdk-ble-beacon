@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -87,6 +87,10 @@
 #define BEACON_EDDYSTONE_TLM 4
 #define BEACON_IBEACON       5
 
+#if defined(CYW43022C1)
+void debug_uart_set_baudrate(uint32_t baud_rate);
+#endif
+
 /* User defined UUID for iBeacon */
 #define UUID_IBEACON     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
 
@@ -114,7 +118,7 @@ extern const wiced_bt_cfg_buf_pool_t app_buf_pools[];
  *                                Structures
  ******************************************************************************/
 
-#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572) || defined(CYW43022C1)
 /* Adv parameter used for multi-adv*/
 wiced_bt_ble_multi_adv_params_t adv_param =
 #else
@@ -154,7 +158,7 @@ const wiced_transport_cfg_t transport_cfg =
             .baud_rate =  HCI_UART_DEFAULT_BAUD
         },
     },
-#if BTSTACK_VER >= 0x03000001
+#ifdef NEW_DYNAMIC_MEMORY_INCLUDED
     .heap_config =
     {
         .data_heap_size = 1024 * 4 + 1500 * 2,
@@ -162,10 +166,9 @@ const wiced_transport_cfg_t transport_cfg =
         .debug_trace_heap_size = 1024,
     },
 #else
-    .rx_buff_pool_cfg =
-    {
+    .rx_buff_pool_cfg = {
         .buffer_size = 0,
-        .buffer_count = 0
+        .buffer_count = 0,
     },
 #endif
     .p_status_handler = NULL,
@@ -225,9 +228,22 @@ APPLICATION_START()
 #ifdef NO_PUART_SUPPORT
     wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_WICED_UART );
 #else
+#if defined(CYW43022C1)
+    // 43022 transport clock rate is 24Mhz for baud rates <= 1.5 Mbit/sec, and 48Mhz for baud rates > 1.5 Mbit/sec.
+    // HCI UART and Debug UART both use the Transport clock, so if the HCI UART rate is <= 1.5 Mbps, please do not set the Debug UART > 1.5 Mbps.
+    // The default Debug UART baud rate is 115200, and default HCI UART baud rate is 3Mbps
+    debug_uart_set_baudrate(115200);
+
+    // CYW943022M2BTBGA doesn't have GPIO pin for PUART.
+    // CYW943022M2BTBGA Debug UART Tx (WICED_GPIO_02) is connected to UART2_RX (ARD_D1) on PUART Level Translators of CYW9BTM2BASE1.
+    // We need to set to WICED_ROUTE_DEBUG_TO_DBG_UART to see traces on PUART of CYW9BTM2BASE1.
+    wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_DBG_UART );
+#else
+    // Set to PUART to see traces on peripheral uart(puart)
     wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
 #ifdef CYW20706A2
     wiced_hal_puart_select_uart_pads( WICED_PUART_RXD, WICED_PUART_TXD, 0, 0);
+#endif
 #endif
 #endif
 
@@ -447,7 +463,7 @@ static void beacon_start_advertisement(void)
     /* Start Eddystone UID advertisements */
     adv_param.adv_int_min = 320; // 200 ms
     adv_param.adv_int_max = 320;
-#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572) || defined(CYW43022C1)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_UID, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -461,7 +477,7 @@ static void beacon_start_advertisement(void)
     /* Start Eddystone URL advertisements */
     adv_param.adv_int_min = 80; // 50 ms
     adv_param.adv_int_max = 80;
-#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572) || defined(CYW43022C1)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_URL, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -475,7 +491,7 @@ static void beacon_start_advertisement(void)
     /* Start Eddystone EID advertisements */
     adv_param.adv_int_min = 480; // 300 ms
     adv_param.adv_int_max = 480;
-#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572) || defined(CYW43022C1)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_EID, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -489,7 +505,7 @@ static void beacon_start_advertisement(void)
     /* Start iBeacon advertisements */
     adv_param.adv_int_min = 160; // 100 ms
     adv_param.adv_int_max = 160;
-#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572) || defined(CYW43022C1)
     wiced_set_multi_advertisement_params(BEACON_IBEACON, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,
@@ -530,7 +546,7 @@ void beacon_data_update(TIMER_PARAM_TYPE arg)
     /* Sets adv data for multi adv instance*/
     adv_param.adv_int_min = 1280; // 800 ms
     adv_param.adv_int_max = 1280; // 800 ms
-#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572)
+#if defined(CYW20835B1) || defined(CYW20819A1) || defined(CYW20719B2) || defined(CYW20721B2) || defined (WICEDX) || defined(CYW55572) || defined(CYW43022C1)
     wiced_set_multi_advertisement_params(BEACON_EDDYSTONE_TLM, &adv_param);
 #else
     wiced_set_multi_advertisement_params(adv_param.adv_int_min, adv_param.adv_int_max, adv_param.adv_type,

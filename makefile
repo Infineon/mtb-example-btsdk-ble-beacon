@@ -1,5 +1,5 @@
 #
-# Copyright 2016-2022, Cypress Semiconductor Corporation (an Infineon company) or
+# Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
 # an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
 #
 # This software, including source code, documentation and related
@@ -78,8 +78,8 @@ SUPPORTED_TARGETS = \
   CYW955572BTEVK-01 \
   CYW943012BTEVK-01 \
   CYW920721M2EVB-03 \
-  CYW920820M2EVB-01
-
+  CYW920820M2EVB-01 \
+  CYW943022BTEVK-01
 #
 # Advanced Configuration
 #
@@ -99,7 +99,7 @@ FEATURES=
 
 #
 # App features/defaults
-ifeq ($(TARGET),$(filter $(TARGET), CYW9M2BASE-43012BT CYW943012BTEVK-01 CYW955572BTEVK-01))
+ifeq ($(TARGET),$(filter $(TARGET), CYW9M2BASE-43012BT CYW943012BTEVK-01 CYW943022BTEVK-01 CYW955572BTEVK-01))
 OTA_FW_UPGRADE?=0
 else
 OTA_FW_UPGRADE?=1
