@@ -312,6 +312,12 @@ void beacon_init(void)
           WICED_BT_TRACE("OTA upgrade Init failure !!! \n");
     }
 #endif
+
+#if defined(CYW43012C0) && defined(USE_CYW43012C0_MULTIADV_LIB)
+    /* initialize the multi-adv library */
+    wiced_multi_adv_init();
+#endif
+
     /* Set the advertising params and make the device discoverable */
     beacon_set_app_advertisement_data();
 
