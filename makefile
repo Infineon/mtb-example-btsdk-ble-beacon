@@ -1,5 +1,5 @@
 #
-# Copyright 2016-2023, Cypress Semiconductor Corporation (an Infineon company) or
+# Copyright 2016-2024, Cypress Semiconductor Corporation (an Infineon company) or
 # an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
 #
 # This software, including source code, documentation and related
@@ -136,6 +136,10 @@ CY_APP_DEFINES += -DOTA_SECURE_FIRMWARE_UPGRADE
 endif
 endif
 
+ifeq ($(TARGET),$(filter $(TARGET), CYW9M2BASE-43012BT CYW943012BTEVK-01))
+CY_APP_DEFINES += -DUSE_CYW43012C0_MULTIADV_LIB
+CY_43012C0_APP_PATCH_LIBS+=wiced_multi_adv_utils_lib.a
+endif
 #
 # Components (middleware libraries)
 #
